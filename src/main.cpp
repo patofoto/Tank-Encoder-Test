@@ -58,6 +58,10 @@ public:
 SimpleEncoder horizontalEncoder(1, 2);  // Pins 1 and 2 for horizontal encoder (A/D or Left/Right)
 SimpleEncoder verticalEncoder(3, 4);    // Pins 3 and 4 for vertical encoder (W/S or Up/Down)
 
+// Fire button pins
+const int FIRE_BUTTON_1_PIN = 5;
+const int FIRE_BUTTON_2_PIN = 6;
+
 // Horizontal encoder (turret left/right movement) - A/D keys
 int32_t lastHorizontalCount = 0;
 const int32_t countsPerStep1 = 5; // dialed back: slightly less rotation per action
@@ -83,6 +87,15 @@ const unsigned long minTailHoldMs = 60;   // minimum hold after stop
 const unsigned long maxTailHoldMs = 350;  // cap tail to avoid long sticks
 const float tailHoldPerCountMs = 25.0f;   // less tail per speed unit
 const unsigned long hardIdleReleaseMs = 500; // always release if idle this long
+
+// Fire button debouncing
+const unsigned long FIRE_DEBOUNCE_MS = 50; // 50ms debounce to prevent false triggers
+bool fireButton1LastState = HIGH;  // Buttons are active LOW (pulled up)
+bool fireButton2LastState = HIGH;
+unsigned long fireButton1LastChangeTime = 0;
+unsigned long fireButton2LastChangeTime = 0;
+bool fireButton1Pressed = false;  // Track if button is currently pressed
+bool fireButton2Pressed = false;
 
 // Map char to Teensy keycode
 int mapCharToHid(char key) {
@@ -137,6 +150,33 @@ void releaseVerticalKey() {
     }
 }
 
+// Handle fire button with debouncing
+void handleFireButton(int buttonPin, bool &lastState, unsigned long &lastChangeTime, bool &isPressed, const char* buttonName) {
+    bool currentReading = digitalRead(buttonPin);
+    unsigned long currentTime = millis();
+    
+    // Check if button state changed and debounce time has passed
+    if (currentReading != lastState && (currentTime - lastChangeTime) >= FIRE_DEBOUNCE_MS) {
+        lastState = currentReading;
+        lastChangeTime = currentTime;
+        
+        // Button is pressed (LOW because of pull-up)
+        if (currentReading == LOW && !isPressed) {
+            isPressed = true;
+            Keyboard.press(KEY_SPACE); // Fire button mapped to SPACE key
+            Serial.print(buttonName);
+            Serial.println(" FIRED!");
+        }
+        // Button is released (HIGH)
+        else if (currentReading == HIGH && isPressed) {
+            isPressed = false;
+            Keyboard.release(KEY_SPACE);
+            Serial.print(buttonName);
+            Serial.println(" released");
+        }
+    }
+}
+
 // Function kept for possible tap actions (unused in hold logic)
 void sendKeyPress(char key) {
     int keycode = mapCharToHid(key);
@@ -158,6 +198,10 @@ void setup(){
 	horizontalEncoder.begin();
 	verticalEncoder.begin();
 	
+	// Initialize fire buttons with internal pull-up resistors
+	pinMode(FIRE_BUTTON_1_PIN, INPUT_PULLUP);
+	pinMode(FIRE_BUTTON_2_PIN, INPUT_PULLUP);
+	
 	// Initialize encoder counts
 	lastHorizontalCount = horizontalEncoder.read();
 	lastVerticalCount = verticalEncoder.read();
@@ -166,6 +210,8 @@ void setup(){
 	Serial.println("USB HID Keyboard Ready!");
 	Serial.println("Horizontal Encoder: " + String(lastHorizontalCount));
 	Serial.println("Vertical Encoder: " + String(lastVerticalCount));
+	Serial.println("Fire Button 1: Pin " + String(FIRE_BUTTON_1_PIN));
+	Serial.println("Fire Button 2: Pin " + String(FIRE_BUTTON_2_PIN));
     Serial.println("Control Mode: " + String(useArrowKeys ? "Arrow Keys" : "WASD"));
 }
 
@@ -241,6 +287,10 @@ void loop(){
 		}
 	}
 
+	// Handle fire buttons with debouncing
+	handleFireButton(FIRE_BUTTON_1_PIN, fireButton1LastState, fireButton1LastChangeTime, fireButton1Pressed, "Fire Button 1");
+	handleFireButton(FIRE_BUTTON_2_PIN, fireButton2LastState, fireButton2LastChangeTime, fireButton2Pressed, "Fire Button 2");
+
 	// Print encoder counts for debugging (less frequent)
 	static unsigned long lastPrint = 0;
 	if (millis() - lastPrint >= 2000) { // Print every 2 seconds
@@ -249,7 +299,8 @@ void loop(){
 		Serial.print(" | Active Keys: ");
 		if (activeHorizontalKey) Serial.print((char)activeHorizontalKey);
 		if (activeVerticalKey) Serial.print((char)activeVerticalKey);
-		if (!activeHorizontalKey && !activeVerticalKey) Serial.print("none");
+		if (fireButton1Pressed || fireButton2Pressed) Serial.print(" FIRE");
+		if (!activeHorizontalKey && !activeVerticalKey && !fireButton1Pressed && !fireButton2Pressed) Serial.print("none");
 		Serial.println(" | Mode: " + String(useArrowKeys ? "Arrows" : "WASD"));
 		lastPrint = millis();
 	}
