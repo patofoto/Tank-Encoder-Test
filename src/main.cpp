@@ -62,6 +62,9 @@ SimpleEncoder verticalEncoder(3, 4);    // Pins 3 and 4 for vertical encoder (W/
 const int FIRE_BUTTON_1_PIN = 5;
 const int FIRE_BUTTON_2_PIN = 6;
 
+// Teensy built-in LED pin
+const int LED_PIN = 13;
+
 // Horizontal encoder (turret left/right movement) - A/D keys
 int32_t lastHorizontalCount = 0;
 const int32_t countsPerStep1 = 5; // dialed back: slightly less rotation per action
@@ -187,6 +190,10 @@ void sendKeyPress(char key) {
 }
 
 void setup(){
+	// Initialize built-in LED to indicate power
+	pinMode(LED_PIN, OUTPUT);
+	digitalWrite(LED_PIN, HIGH); // Turn on LED to show device is powered and running
+	
 	// Initialize Serial
 	Serial.begin(115200);
 	delay(1000); // Give serial time to initialize
@@ -208,6 +215,7 @@ void setup(){
 	
 	Serial.println("Tank Encoder Controller Started (Teensy 4.1)");
 	Serial.println("USB HID Keyboard Ready!");
+	Serial.println("LED Power Indicator: ON");
 	Serial.println("Horizontal Encoder: " + String(lastHorizontalCount));
 	Serial.println("Vertical Encoder: " + String(lastVerticalCount));
 	Serial.println("Fire Button 1: Pin " + String(FIRE_BUTTON_1_PIN));
