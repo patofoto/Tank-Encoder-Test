@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "config.h"
 
 // Teensy 4.1 has native USB Keyboard support - no additional library needed
 
@@ -54,39 +55,17 @@ public:
     }
 };
 
-// Encoder objects
-SimpleEncoder horizontalEncoder(1, 2);  // Pins 1 and 2 for horizontal encoder (A/D or Left/Right)
-SimpleEncoder verticalEncoder(3, 4);    // Pins 3 and 4 for vertical encoder (W/S or Up/Down)
+// Encoder objects (using pin configuration from config.h)
+SimpleEncoder horizontalEncoder(HORIZONTAL_ENCODER_PIN_A, HORIZONTAL_ENCODER_PIN_B);
+SimpleEncoder verticalEncoder(VERTICAL_ENCODER_PIN_A, VERTICAL_ENCODER_PIN_B);
 
-// Fire button pins
-const int FIRE_BUTTON_1_PIN = 5;
-const int FIRE_BUTTON_2_PIN = 6;
-
-// Teensy built-in LED pin
-const int LED_PIN = 13;
-
-// Horizontal encoder (turret left/right movement) - A/D keys
+// Encoder position tracking
 int32_t lastHorizontalCount = 0;
-
-// Vertical encoder (turret up/down movement) - W/S keys
 int32_t lastVerticalCount = 0;
-
-// Control mode: 0 = WASD keys, 1 = Arrow keys
-bool useArrowKeys = false;
-
-// ===== REALISTIC TANK GEARING SYSTEM =====
-// Gear reduction ratios (higher = more encoder turns needed, more realistic)
-const float HORIZONTAL_GEAR_RATIO = 15.0f;  // Turret rotation: ~15 encoder clicks per key action
-const float VERTICAL_GEAR_RATIO = 12.0f;    // Cannon elevation: ~12 encoder clicks per key action
 
 // Accumulators for gear reduction
 float horizontalAccumulator = 0.0f;
 float verticalAccumulator = 0.0f;
-
-// Speed-based key hold duration (realistic momentum)
-const unsigned long MIN_KEY_HOLD_MS = 30;   // Minimum tap for slow movements
-const unsigned long MAX_KEY_HOLD_MS = 200;  // Maximum hold for fast movements
-const float SPEED_SENSITIVITY = 3.0f;       // How much speed affects hold time
 
 // Independent key tracking for each axis
 int activeHorizontalKey = 0; // currently held horizontal key (0 = none)
@@ -101,15 +80,8 @@ unsigned long verticalHoldDuration = 0;     // How long to hold key
 // Velocity tracking for realistic feel
 float horizontalSpeed = 0.0f;  // Current turning speed
 float verticalSpeed = 0.0f;    // Current elevation speed
-const float speedDecay = 0.85f; // Speed decay when idle
 
-// Tail-hold for smooth stops
-const unsigned long minTailHoldMs = 50;
-const unsigned long maxTailHoldMs = 250;
-const unsigned long hardIdleReleaseMs = 400;
-
-// Fire button debouncing
-const unsigned long FIRE_DEBOUNCE_MS = 50; // 50ms debounce to prevent false triggers
+// Fire button state tracking
 bool fireButton1LastState = HIGH;  // Buttons are active LOW (pulled up)
 bool fireButton2LastState = HIGH;
 unsigned long fireButton1LastChangeTime = 0;
@@ -117,7 +89,7 @@ unsigned long fireButton2LastChangeTime = 0;
 bool fireButton1Pressed = false;  // Track if button is currently pressed
 bool fireButton2Pressed = false;
 
-// Map char to Teensy keycode
+// Map char to Teensy keycode (uses USE_ARROW_KEYS from config.h)
 int mapCharToHid(char key) {
     if (key == 'a' || key == 'A') return 'a';
     if (key == 'd' || key == 'D') return 'd';
@@ -211,8 +183,8 @@ void setup(){
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, HIGH); // Turn on LED to show device is powered and running
 	
-	// Initialize Serial
-	Serial.begin(115200);
+	// Initialize Serial (baud rate from config.h)
+	Serial.begin(SERIAL_BAUD_RATE);
 	delay(1000); // Give serial time to initialize
 	
 	// Initialize Teensy USB Keyboard
@@ -237,7 +209,8 @@ void setup(){
 	Serial.println("Vertical Encoder: " + String(lastVerticalCount));
 	Serial.println("Fire Button 1: Pin " + String(FIRE_BUTTON_1_PIN));
 	Serial.println("Fire Button 2: Pin " + String(FIRE_BUTTON_2_PIN));
-    Serial.println("Control Mode: " + String(useArrowKeys ? "Arrow Keys" : "WASD"));
+    Serial.println("Control Mode: " + String(USE_ARROW_KEYS ? "Arrow Keys" : "WASD"));
+	Serial.println("Gear Ratios - H: " + String(HORIZONTAL_GEAR_RATIO) + " | V: " + String(VERTICAL_GEAR_RATIO));
 }
 
 void loop(){
@@ -261,7 +234,7 @@ void loop(){
 		// Check if we've accumulated enough movement to trigger an action
 		if (horizontalAccumulator >= HORIZONTAL_GEAR_RATIO) {
 			// Determine direction
-			char desiredChar = (deltaHorizontal > 0) ? (useArrowKeys ? 'R' : 'd') : (useArrowKeys ? 'L' : 'a');
+			char desiredChar = (deltaHorizontal > 0) ? (USE_ARROW_KEYS ? 'R' : 'd') : (USE_ARROW_KEYS ? 'L' : 'a');
 			int desiredKeycode = mapCharToHid(desiredChar);
 			
 			// Calculate hold duration based on speed (faster = longer hold)
@@ -287,7 +260,7 @@ void loop(){
 		lastHorizontalCount = currentHorizontalCount;
 	} else {
 		// Decay speed when idle
-		horizontalSpeed *= speedDecay;
+		horizontalSpeed *= SPEED_DECAY;
 		if (horizontalSpeed < 0.1f) horizontalSpeed = 0.0f;
 	}
 	
@@ -297,7 +270,7 @@ void loop(){
 		unsigned long idleTime = currentTime - lastHorizontalMoveMs;
 		
 		// Release if: 1) hold duration expired, OR 2) been idle too long
-		if (keyHeldTime >= horizontalHoldDuration || idleTime >= hardIdleReleaseMs) {
+		if (keyHeldTime >= horizontalHoldDuration || idleTime >= HARD_IDLE_RELEASE_MS) {
 			releaseHorizontalKey();
 			horizontalAccumulator = 0; // Reset accumulator on full stop
 		}
@@ -314,7 +287,7 @@ void loop(){
 		// Check if we've accumulated enough movement to trigger an action
 		if (verticalAccumulator >= VERTICAL_GEAR_RATIO) {
 			// Determine direction
-			char desiredChar = (deltaVertical > 0) ? (useArrowKeys ? 'U' : 'w') : (useArrowKeys ? 'D' : 's');
+			char desiredChar = (deltaVertical > 0) ? (USE_ARROW_KEYS ? 'U' : 'w') : (USE_ARROW_KEYS ? 'D' : 's');
 			int desiredKeycode = mapCharToHid(desiredChar);
 			
 			// Calculate hold duration based on speed (faster = longer hold)
@@ -340,7 +313,7 @@ void loop(){
 		lastVerticalCount = currentVerticalCount;
 	} else {
 		// Decay speed when idle
-		verticalSpeed *= speedDecay;
+		verticalSpeed *= SPEED_DECAY;
 		if (verticalSpeed < 0.1f) verticalSpeed = 0.0f;
 	}
 	
@@ -350,7 +323,7 @@ void loop(){
 		unsigned long idleTime = currentTime - lastVerticalMoveMs;
 		
 		// Release if: 1) hold duration expired, OR 2) been idle too long
-		if (keyHeldTime >= verticalHoldDuration || idleTime >= hardIdleReleaseMs) {
+		if (keyHeldTime >= verticalHoldDuration || idleTime >= HARD_IDLE_RELEASE_MS) {
 			releaseVerticalKey();
 			verticalAccumulator = 0; // Reset accumulator on full stop
 		}
@@ -360,9 +333,9 @@ void loop(){
 	handleFireButton(FIRE_BUTTON_1_PIN, fireButton1LastState, fireButton1LastChangeTime, fireButton1Pressed, "Fire Button 1");
 	handleFireButton(FIRE_BUTTON_2_PIN, fireButton2LastState, fireButton2LastChangeTime, fireButton2Pressed, "Fire Button 2");
 
-	// Print status for debugging (less frequent)
+	// Print status for debugging (interval from config.h)
 	static unsigned long lastPrint = 0;
-	if (currentTime - lastPrint >= 3000) { // Print every 3 seconds
+	if (currentTime - lastPrint >= STATUS_PRINT_INTERVAL_MS) {
 		Serial.println("===== STATUS =====");
 		Serial.print("H Accum: ");
 		Serial.print(horizontalAccumulator);
