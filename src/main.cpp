@@ -67,29 +67,46 @@ const int LED_PIN = 13;
 
 // Horizontal encoder (turret left/right movement) - A/D keys
 int32_t lastHorizontalCount = 0;
-const int32_t countsPerStep1 = 5; // dialed back: slightly less rotation per action
 
 // Vertical encoder (turret up/down movement) - W/S keys
 int32_t lastVerticalCount = 0;
-const int32_t countsPerStep2 = 5; // dialed back: slightly less rotation per action
 
 // Control mode: 0 = WASD keys, 1 = Arrow keys
 bool useArrowKeys = false;
+
+// ===== REALISTIC TANK GEARING SYSTEM =====
+// Gear reduction ratios (higher = more encoder turns needed, more realistic)
+const float HORIZONTAL_GEAR_RATIO = 15.0f;  // Turret rotation: ~15 encoder clicks per key action
+const float VERTICAL_GEAR_RATIO = 12.0f;    // Cannon elevation: ~12 encoder clicks per key action
+
+// Accumulators for gear reduction
+float horizontalAccumulator = 0.0f;
+float verticalAccumulator = 0.0f;
+
+// Speed-based key hold duration (realistic momentum)
+const unsigned long MIN_KEY_HOLD_MS = 30;   // Minimum tap for slow movements
+const unsigned long MAX_KEY_HOLD_MS = 200;  // Maximum hold for fast movements
+const float SPEED_SENSITIVITY = 3.0f;       // How much speed affects hold time
 
 // Independent key tracking for each axis
 int activeHorizontalKey = 0; // currently held horizontal key (0 = none)
 int activeVerticalKey = 0;   // currently held vertical key (0 = none)
 unsigned long lastHorizontalMoveMs = 0;
 unsigned long lastVerticalMoveMs = 0;
+unsigned long horizontalKeyPressTime = 0;   // When key was pressed
+unsigned long verticalKeyPressTime = 0;     // When key was pressed
+unsigned long horizontalHoldDuration = 0;   // How long to hold key
+unsigned long verticalHoldDuration = 0;     // How long to hold key
 
-// Independent velocity-smoothed tail hold for each axis
-float horizontalFilteredSpeed = 0.0f; // low-pass of horizontal |delta|
-float verticalFilteredSpeed = 0.0f;   // low-pass of vertical |delta|
-const float speedAlpha = 0.20f; // smoother response to spikes
-const unsigned long minTailHoldMs = 60;   // minimum hold after stop
-const unsigned long maxTailHoldMs = 350;  // cap tail to avoid long sticks
-const float tailHoldPerCountMs = 25.0f;   // less tail per speed unit
-const unsigned long hardIdleReleaseMs = 500; // always release if idle this long
+// Velocity tracking for realistic feel
+float horizontalSpeed = 0.0f;  // Current turning speed
+float verticalSpeed = 0.0f;    // Current elevation speed
+const float speedDecay = 0.85f; // Speed decay when idle
+
+// Tail-hold for smooth stops
+const unsigned long minTailHoldMs = 50;
+const unsigned long maxTailHoldMs = 250;
+const unsigned long hardIdleReleaseMs = 400;
 
 // Fire button debouncing
 const unsigned long FIRE_DEBOUNCE_MS = 50; // 50ms debounce to prevent false triggers
@@ -224,6 +241,8 @@ void setup(){
 }
 
 void loop(){
+	unsigned long currentTime = millis();
+	
 	// Read both encoders
 	int32_t currentHorizontalCount = horizontalEncoder.read();
 	int32_t deltaHorizontal = currentHorizontalCount - lastHorizontalCount;
@@ -233,65 +252,107 @@ void loop(){
 	
 	// ===== HORIZONTAL AXIS (Left/Right turret rotation) =====
 	if (deltaHorizontal != 0) {
-		// Horizontal encoder is moving
-		char desiredChar;
-		if (deltaHorizontal > 0) {
-			desiredChar = useArrowKeys ? 'R' : 'd';
-			Serial.println("Turning RIGHT");
-		} else {
-			desiredChar = useArrowKeys ? 'L' : 'a';
-			Serial.println("Turning LEFT");
+		// Add to accumulator with gear reduction
+		horizontalAccumulator += abs(deltaHorizontal);
+		
+		// Update speed (for momentum feel)
+		horizontalSpeed = abs(deltaHorizontal);
+		
+		// Check if we've accumulated enough movement to trigger an action
+		if (horizontalAccumulator >= HORIZONTAL_GEAR_RATIO) {
+			// Determine direction
+			char desiredChar = (deltaHorizontal > 0) ? (useArrowKeys ? 'R' : 'd') : (useArrowKeys ? 'L' : 'a');
+			int desiredKeycode = mapCharToHid(desiredChar);
+			
+			// Calculate hold duration based on speed (faster = longer hold)
+			horizontalHoldDuration = MIN_KEY_HOLD_MS + (unsigned long)(min(horizontalSpeed * SPEED_SENSITIVITY, 
+				(float)(MAX_KEY_HOLD_MS - MIN_KEY_HOLD_MS)));
+			
+			// Press the key
+			pressHorizontalKey(desiredKeycode);
+			horizontalKeyPressTime = currentTime;
+			
+			// Reset accumulator (keep remainder for smooth feel)
+			horizontalAccumulator -= HORIZONTAL_GEAR_RATIO;
+			
+			Serial.print("HORIZONTAL: ");
+			Serial.print(deltaHorizontal > 0 ? "RIGHT" : "LEFT");
+			Serial.print(" | Speed: ");
+			Serial.print(horizontalSpeed);
+			Serial.print(" | Hold: ");
+			Serial.println(horizontalHoldDuration);
 		}
-		// Update horizontal velocity filter
-		horizontalFilteredSpeed = (1.0f - speedAlpha) * horizontalFilteredSpeed + speedAlpha * abs(deltaHorizontal);
-		int desiredKeycode = mapCharToHid(desiredChar);
-		pressHorizontalKey(desiredKeycode);
-		lastHorizontalMoveMs = millis();
+		
+		lastHorizontalMoveMs = currentTime;
 		lastHorizontalCount = currentHorizontalCount;
 	} else {
-		// Horizontal encoder is idle - check if we should release the key
-		horizontalFilteredSpeed *= 0.80f; // decay filter
-		if (horizontalFilteredSpeed < 0.05f) horizontalFilteredSpeed = 0.0f;
+		// Decay speed when idle
+		horizontalSpeed *= speedDecay;
+		if (horizontalSpeed < 0.1f) horizontalSpeed = 0.0f;
+	}
+	
+	// Check if horizontal key should be released (after hold duration)
+	if (activeHorizontalKey != 0) {
+		unsigned long keyHeldTime = currentTime - horizontalKeyPressTime;
+		unsigned long idleTime = currentTime - lastHorizontalMoveMs;
 		
-		unsigned long horizontalDynamicReleaseMs = minTailHoldMs + (unsigned long)min(maxTailHoldMs - minTailHoldMs,
-			(unsigned long)(horizontalFilteredSpeed * tailHoldPerCountMs));
-		unsigned long horizontalIdleMs = millis() - lastHorizontalMoveMs;
-		
-		if (activeHorizontalKey != 0 && (horizontalIdleMs >= horizontalDynamicReleaseMs || horizontalIdleMs >= hardIdleReleaseMs)) {
+		// Release if: 1) hold duration expired, OR 2) been idle too long
+		if (keyHeldTime >= horizontalHoldDuration || idleTime >= hardIdleReleaseMs) {
 			releaseHorizontalKey();
-			Serial.println("Released HORIZONTAL");
+			horizontalAccumulator = 0; // Reset accumulator on full stop
 		}
 	}
 	
 	// ===== VERTICAL AXIS (Up/Down cannon elevation) =====
 	if (deltaVertical != 0) {
-		// Vertical encoder is moving
-		char desiredChar;
-		if (deltaVertical > 0) {
-			desiredChar = useArrowKeys ? 'U' : 'w';
-			Serial.println("Turning UP");
-		} else {
-			desiredChar = useArrowKeys ? 'D' : 's';
-			Serial.println("Turning DOWN");
+		// Add to accumulator with gear reduction
+		verticalAccumulator += abs(deltaVertical);
+		
+		// Update speed (for momentum feel)
+		verticalSpeed = abs(deltaVertical);
+		
+		// Check if we've accumulated enough movement to trigger an action
+		if (verticalAccumulator >= VERTICAL_GEAR_RATIO) {
+			// Determine direction
+			char desiredChar = (deltaVertical > 0) ? (useArrowKeys ? 'U' : 'w') : (useArrowKeys ? 'D' : 's');
+			int desiredKeycode = mapCharToHid(desiredChar);
+			
+			// Calculate hold duration based on speed (faster = longer hold)
+			verticalHoldDuration = MIN_KEY_HOLD_MS + (unsigned long)(min(verticalSpeed * SPEED_SENSITIVITY, 
+				(float)(MAX_KEY_HOLD_MS - MIN_KEY_HOLD_MS)));
+			
+			// Press the key
+			pressVerticalKey(desiredKeycode);
+			verticalKeyPressTime = currentTime;
+			
+			// Reset accumulator (keep remainder for smooth feel)
+			verticalAccumulator -= VERTICAL_GEAR_RATIO;
+			
+			Serial.print("VERTICAL: ");
+			Serial.print(deltaVertical > 0 ? "UP" : "DOWN");
+			Serial.print(" | Speed: ");
+			Serial.print(verticalSpeed);
+			Serial.print(" | Hold: ");
+			Serial.println(verticalHoldDuration);
 		}
-		// Update vertical velocity filter
-		verticalFilteredSpeed = (1.0f - speedAlpha) * verticalFilteredSpeed + speedAlpha * abs(deltaVertical);
-		int desiredKeycode = mapCharToHid(desiredChar);
-		pressVerticalKey(desiredKeycode);
-		lastVerticalMoveMs = millis();
+		
+		lastVerticalMoveMs = currentTime;
 		lastVerticalCount = currentVerticalCount;
 	} else {
-		// Vertical encoder is idle - check if we should release the key
-		verticalFilteredSpeed *= 0.80f; // decay filter
-		if (verticalFilteredSpeed < 0.05f) verticalFilteredSpeed = 0.0f;
+		// Decay speed when idle
+		verticalSpeed *= speedDecay;
+		if (verticalSpeed < 0.1f) verticalSpeed = 0.0f;
+	}
+	
+	// Check if vertical key should be released (after hold duration)
+	if (activeVerticalKey != 0) {
+		unsigned long keyHeldTime = currentTime - verticalKeyPressTime;
+		unsigned long idleTime = currentTime - lastVerticalMoveMs;
 		
-		unsigned long verticalDynamicReleaseMs = minTailHoldMs + (unsigned long)min(maxTailHoldMs - minTailHoldMs,
-			(unsigned long)(verticalFilteredSpeed * tailHoldPerCountMs));
-		unsigned long verticalIdleMs = millis() - lastVerticalMoveMs;
-		
-		if (activeVerticalKey != 0 && (verticalIdleMs >= verticalDynamicReleaseMs || verticalIdleMs >= hardIdleReleaseMs)) {
+		// Release if: 1) hold duration expired, OR 2) been idle too long
+		if (keyHeldTime >= verticalHoldDuration || idleTime >= hardIdleReleaseMs) {
 			releaseVerticalKey();
-			Serial.println("Released VERTICAL");
+			verticalAccumulator = 0; // Reset accumulator on full stop
 		}
 	}
 
@@ -299,19 +360,28 @@ void loop(){
 	handleFireButton(FIRE_BUTTON_1_PIN, fireButton1LastState, fireButton1LastChangeTime, fireButton1Pressed, "Fire Button 1");
 	handleFireButton(FIRE_BUTTON_2_PIN, fireButton2LastState, fireButton2LastChangeTime, fireButton2Pressed, "Fire Button 2");
 
-	// Print encoder counts for debugging (less frequent)
+	// Print status for debugging (less frequent)
 	static unsigned long lastPrint = 0;
-	if (millis() - lastPrint >= 2000) { // Print every 2 seconds
-		Serial.print("H: " + String(currentHorizontalCount));
-		Serial.print(" | V: " + String(currentVerticalCount));
-		Serial.print(" | Active Keys: ");
+	if (currentTime - lastPrint >= 3000) { // Print every 3 seconds
+		Serial.println("===== STATUS =====");
+		Serial.print("H Accum: ");
+		Serial.print(horizontalAccumulator);
+		Serial.print("/");
+		Serial.print(HORIZONTAL_GEAR_RATIO);
+		Serial.print(" | V Accum: ");
+		Serial.print(verticalAccumulator);
+		Serial.print("/");
+		Serial.println(VERTICAL_GEAR_RATIO);
+		
+		Serial.print("Active Keys: ");
 		if (activeHorizontalKey) Serial.print((char)activeHorizontalKey);
 		if (activeVerticalKey) Serial.print((char)activeVerticalKey);
-		if (fireButton1Pressed || fireButton2Pressed) Serial.print(" FIRE");
+		if (fireButton1Pressed || fireButton2Pressed) Serial.print(" [FIRE]");
 		if (!activeHorizontalKey && !activeVerticalKey && !fireButton1Pressed && !fireButton2Pressed) Serial.print("none");
-		Serial.println(" | Mode: " + String(useArrowKeys ? "Arrows" : "WASD"));
-		lastPrint = millis();
+		Serial.println();
+		Serial.println("==================");
+		lastPrint = currentTime;
 	}
 
-	delay(1); // faster loop to catch more encoder transitions
+	delay(1); // Fast loop to catch encoder transitions
 }
