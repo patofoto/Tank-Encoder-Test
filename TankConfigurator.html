@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Controller Configurator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+        
+        .status-bar {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #2ecc71;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .preset-btn {
+            padding: 15px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .preset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
+        }
+        
+        .setting-group {
+            margin-bottom: 25px;
+        }
+        
+        .setting-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .setting-value {
+            color: #667eea;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #e0e0e0 0%, #667eea 0%);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.7);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
+        }
+        
+        .setting-description {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 30px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        
+        .toggle input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .alert-info {
+            background: #d4edff;
+            color: #0056b3;
+            border-left: 4px solid #0056b3;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .console {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        
+        .console-line {
+            margin-bottom: 5px;
+        }
+        
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(to right, transparent, #667eea, transparent);
+            margin: 30px 0;
+        }
+        
+        .keybind-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .keybind-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .keybind-label {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 600;
+        }
+        
+        .keybind-btn {
+            padding: 12px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #667eea;
+            transition: all 0.3s ease;
+            text-align: center;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .keybind-btn:hover {
+            background: #f0f0ff;
+            transform: scale(1.05);
+        }
+        
+        .keybind-btn.listening {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #764ba2;
+            animation: listening-pulse 1s infinite;
+        }
+        
+        @keyframes listening-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
+            50% { box-shadow: 0 0 20px 10px rgba(102, 126, 234, 0); }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Tank Controller Configurator</h1>
+        <p class="subtitle">Configure your Tank Encoder Controller via Web Serial</p>
+        
+        <div id="browserWarning" class="alert alert-warning" style="display: none;">
+            ⚠️ Web Serial API not supported. Please use Chrome, Edge, or Opera browser.
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <button id="connectBtn" class="btn">Connect</button>
+        </div>
+        
+        <div id="configSection" style="display: none;">
+            <h2 style="margin-bottom: 15px; color: #333;">⚡ Quick Presets</h2>
+            <div class="preset-buttons">
+                <button class="preset-btn" onclick="loadPreset('arcade')">🏎️ Arcade</button>
+                <button class="preset-btn" onclick="loadPreset('default')">⚖️ Balanced</button>
+                <button class="preset-btn" onclick="loadPreset('simulation')">🛡️ Simulation</button>
+                <button class="preset-btn" onclick="loadPreset('sniper')">🎯 Sniper</button>
+            </div>
+            
+            <div class="section-divider"></div>
+            
+            <h2 style="margin-bottom: 15px; color: #333;">⌨️ Key Bindings</h2>
+            <p style="margin-bottom: 15px; color: #666; font-size: 0.9rem;">
+                Click a button below, then press any key to assign it
+            </p>
+            
+            <div class="keybind-grid">
+                <div class="keybind-item">
+                    <div class="keybind-label">← Left</div>
+                    <button class="keybind-btn" id="keyLeftBtn" onclick="captureKey('key_left')">A</button>
+                </div>
+                <div class="keybind-item">
+                    <div class="keybind-label">→ Right</div>
+                    <button class="keybind-btn" id="keyRightBtn" onclick="captureKey('key_right')">D</button>
+                </div>
+                <div class="keybind-item">
+                    <div class="keybind-label">↑ Up</div>
+                    <button class="keybind-btn" id="keyUpBtn" onclick="captureKey('key_up')">W</button>
+                </div>
+                <div class="keybind-item">
+                    <div class="keybind-label">↓ Down</div>
+                    <button class="keybind-btn" id="keyDownBtn" onclick="captureKey('key_down')">S</button>
+                </div>
+                <div class="keybind-item">
+                    <div class="keybind-label">🔫 Fire 1</div>
+                    <button class="keybind-btn" id="keyFire1Btn" onclick="captureKey('key_fire1')">SPACE</button>
+                </div>
+                <div class="keybind-item">
+                    <div class="keybind-label">🔫 Fire 2</div>
+                    <button class="keybind-btn" id="keyFire2Btn" onclick="captureKey('key_fire2')">SPACE</button>
+                </div>
+            </div>
+            
+            <div class="section-divider"></div>
+            
+            <h2 style="margin-bottom: 20px; color: #333;">⚙️ Fine Tuning</h2>
+            
+            <!-- Horizontal Gear Ratio -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Horizontal Gear Ratio (Turret)</span>
+                    <span id="gearHValue" class="setting-value">15.0</span>
+                </div>
+                <input type="range" min="5" max="30" step="0.5" value="15" class="slider" id="gearH" 
+                       oninput="updateSlider('gear_h', this.value)">
+                <div class="setting-description">Higher = slower, more precise turret rotation</div>
+            </div>
+            
+            <!-- Vertical Gear Ratio -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Vertical Gear Ratio (Cannon)</span>
+                    <span id="gearVValue" class="setting-value">12.0</span>
+                </div>
+                <input type="range" min="5" max="30" step="0.5" value="12" class="slider" id="gearV" 
+                       oninput="updateSlider('gear_v', this.value)">
+                <div class="setting-description">Higher = slower, more precise cannon elevation</div>
+            </div>
+            
+            <!-- Speed Sensitivity -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Speed Sensitivity</span>
+                    <span id="speedSenseValue" class="setting-value">3.0</span>
+                </div>
+                <input type="range" min="1" max="10" step="0.5" value="3" class="slider" id="speedSense" 
+                       oninput="updateSlider('speed_sense', this.value)">
+                <div class="setting-description">How much turning speed affects response time</div>
+            </div>
+            
+            <!-- Speed Decay (Momentum) -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Momentum / Inertia</span>
+                    <span id="decayValue" class="setting-value">0.85</span>
+                </div>
+                <input type="range" min="0" max="100" step="1" value="85" class="slider" id="decay" 
+                       oninput="updateSlider('decay', this.value / 100)">
+                <div class="setting-description">Higher = more momentum (realistic feel)</div>
+            </div>
+            
+            <!-- Min Key Hold -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Minimum Key Hold Time (ms)</span>
+                    <span id="minHoldValue" class="setting-value">30</span>
+                </div>
+                <input type="range" min="10" max="200" step="5" value="30" class="slider" id="minHold" 
+                       oninput="updateSlider('min_hold', this.value)">
+                <div class="setting-description">Shortest key press duration for precise movements</div>
+            </div>
+            
+            <!-- Max Key Hold -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Maximum Key Hold Time (ms)</span>
+                    <span id="maxHoldValue" class="setting-value">200</span>
+                </div>
+                <input type="range" min="50" max="500" step="10" value="200" class="slider" id="maxHold" 
+                       oninput="updateSlider('max_hold', this.value)">
+                <div class="setting-description">Longest key press duration for fast movements</div>
+            </div>
+            
+            <div class="section-divider"></div>
+            
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn" onclick="saveToEEPROM()">💾 Save to Device</button>
+                <button class="btn btn-secondary" onclick="resetToFactory()">🔄 Reset to Factory</button>
+            </div>
+            
+            <!-- Console Output -->
+            <div class="console" id="console">
+                <div class="console-line">Ready to configure...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        let reader;
+        let writer;
+        let isConnected = false;
+        
+        // Check for Web Serial API support
+        if (!('serial' in navigator)) {
+            document.getElementById('browserWarning').style.display = 'block';
+            document.getElementById('connectBtn').disabled = true;
+        }
+        
+        // Connect to Teensy
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (!isConnected) {
+                try {
+                    // Request port
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 115200 });
+                    
+                    // Set up reader and writer
+                    const textDecoder = new TextDecoderStream();
+                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                    reader = textDecoder.readable.getReader();
+                    
+                    const textEncoder = new TextEncoderStream();
+                    const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                    writer = textEncoder.writable.getWriter();
+                    
+                    // Update UI
+                    isConnected = true;
+                    document.getElementById('statusDot').classList.add('connected');
+                    document.getElementById('statusText').textContent = 'Connected';
+                    document.getElementById('connectBtn').textContent = 'Disconnect';
+                    document.getElementById('connectBtn').classList.add('btn-secondary');
+                    document.getElementById('configSection').style.display = 'block';
+                    
+                    addConsoleLog('✓ Connected to Tank Controller');
+                    
+                    // Read initial settings
+                    await readAllSettings();
+                    
+                    // Start reading serial data
+                    readLoop();
+                    
+                } catch (error) {
+                    addConsoleLog('✗ Connection failed: ' + error.message);
+                }
+            } else {
+                // Disconnect
+                try {
+                    reader.cancel();
+                    await writer.close();
+                    await port.close();
+                    
+                    isConnected = false;
+                    document.getElementById('statusDot').classList.remove('connected');
+                    document.getElementById('statusText').textContent = 'Disconnected';
+                    document.getElementById('connectBtn').textContent = 'Connect';
+                    document.getElementById('connectBtn').classList.remove('btn-secondary');
+                    document.getElementById('configSection').style.display = 'none';
+                    
+                    addConsoleLog('Disconnected');
+                } catch (error) {
+                    addConsoleLog('✗ Disconnect failed: ' + error.message);
+                }
+            }
+        });
+        
+        // Read serial data
+        async function readLoop() {
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    // Process received data
+                    const lines = value.split('\n');
+                    lines.forEach(line => {
+                        line = line.trim();
+                        
+                        // Try to parse JSON responses (for get commands)
+                        if (line.startsWith('{')) {
+                            try {
+                                const data = JSON.parse(line);
+                                if (data.setting && data.name !== undefined) {
+                                    // Key binding response
+                                    updateKeyBindingDisplay(data.setting, data.name);
+                                }
+                            } catch (e) {
+                                // Not valid JSON, just log it
+                            }
+                        }
+                        
+                        // Log non-movement messages
+                        if (line.length > 0 && !line.includes('HORIZONTAL') && !line.includes('VERTICAL') && !line.includes('STATUS')) {
+                            addConsoleLog(line);
+                        }
+                    });
+                }
+            } catch (error) {
+                if (isConnected) {
+                    addConsoleLog('✗ Read error: ' + error.message);
+                }
+            }
+        }
+        
+        // Send command to Teensy
+        async function sendCommand(command) {
+            if (!isConnected) return;
+            
+            try {
+                await writer.write(command + '\n');
+            } catch (error) {
+                addConsoleLog('✗ Send error: ' + error.message);
+            }
+        }
+        
+        // Read all settings from device
+        async function readAllSettings() {
+            // Give device time to respond
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Key bindings
+            sendCommand('get key_left');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get key_right');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get key_up');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get key_down');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get key_fire1');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get key_fire2');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            // Other settings
+            sendCommand('get gear_h');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get gear_v');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get speed_sense');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get decay');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get min_hold');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            sendCommand('get max_hold');
+        }
+        
+        // Update slider value and send to device
+        function updateSlider(setting, value) {
+            const displayValue = parseFloat(value).toFixed(setting.includes('gear') || setting === 'speed_sense' || setting === 'decay' ? 2 : 0);
+            
+            // Update display
+            if (setting === 'gear_h') {
+                document.getElementById('gearHValue').textContent = displayValue;
+            } else if (setting === 'gear_v') {
+                document.getElementById('gearVValue').textContent = displayValue;
+            } else if (setting === 'speed_sense') {
+                document.getElementById('speedSenseValue').textContent = displayValue;
+            } else if (setting === 'decay') {
+                document.getElementById('decayValue').textContent = displayValue;
+            } else if (setting === 'min_hold') {
+                document.getElementById('minHoldValue').textContent = displayValue;
+            } else if (setting === 'max_hold') {
+                document.getElementById('maxHoldValue').textContent = displayValue;
+            }
+            
+            // Update slider gradient
+            updateSliderGradient(setting);
+            
+            // Send to device
+            sendCommand(`set ${setting} ${value}`);
+        }
+        
+        // Key binding state
+        let listeningForKey = null;
+        let keyListener = null;
+        
+        // Map key event to key name
+        function getKeyDisplayName(event) {
+            // Special keys
+            if (event.key === ' ') return 'SPACE';
+            if (event.key === 'ArrowLeft') return 'LEFT';
+            if (event.key === 'ArrowRight') return 'RIGHT';
+            if (event.key === 'ArrowUp') return 'UP';
+            if (event.key === 'ArrowDown') return 'DOWN';
+            if (event.key === 'Enter') return 'ENTER';
+            if (event.key === 'Tab') return 'TAB';
+            if (event.key === 'Escape') return 'ESC';
+            if (event.key === 'Control') return event.location === 1 ? 'LCTRL' : 'RCTRL';
+            if (event.key === 'Shift') return event.location === 1 ? 'LSHIFT' : 'RSHIFT';
+            if (event.key === 'Alt') return event.location === 1 ? 'LALT' : 'RALT';
+            
+            // Regular keys
+            if (event.key.length === 1) {
+                return event.key.toUpperCase();
+            }
+            
+            return event.key;
+        }
+        
+        // Capture key press for binding
+        function captureKey(setting) {
+            // Cancel any previous listening
+            if (keyListener) {
+                document.removeEventListener('keydown', keyListener);
+                keyListener = null;
+            }
+            
+            // Reset all buttons
+            document.querySelectorAll('.keybind-btn').forEach(btn => {
+                btn.classList.remove('listening');
+            });
+            
+            // Set listening state
+            listeningForKey = setting;
+            
+            // Map setting to button ID
+            const btnMap = {
+                'key_left': 'keyLeftBtn',
+                'key_right': 'keyRightBtn',
+                'key_up': 'keyUpBtn',
+                'key_down': 'keyDownBtn',
+                'key_fire1': 'keyFire1Btn',
+                'key_fire2': 'keyFire2Btn'
+            };
+            
+            const btn = document.getElementById(btnMap[setting]);
+            if (btn) {
+                btn.classList.add('listening');
+                btn.textContent = 'Press key...';
+            }
+            
+            // Create key listener
+            keyListener = function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                const keyName = getKeyDisplayName(event);
+                
+                // Update button
+                if (btn) {
+                    btn.textContent = keyName;
+                    btn.classList.remove('listening');
+                }
+                
+                // Send to device
+                sendCommand(`set ${setting} ${keyName}`);
+                addConsoleLog(`✓ ${setting} = ${keyName}`);
+                
+                // Clean up
+                document.removeEventListener('keydown', keyListener);
+                keyListener = null;
+                listeningForKey = null;
+            };
+            
+            document.addEventListener('keydown', keyListener);
+        }
+        
+        // Update key binding button display
+        function updateKeyBindingDisplay(setting, keyName) {
+            const btnMap = {
+                'key_left': 'keyLeftBtn',
+                'key_right': 'keyRightBtn',
+                'key_up': 'keyUpBtn',
+                'key_down': 'keyDownBtn',
+                'key_fire1': 'keyFire1Btn',
+                'key_fire2': 'keyFire2Btn'
+            };
+            
+            const btnId = btnMap[setting];
+            if (btnId) {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.textContent = keyName;
+                }
+            }
+        }
+        
+        // Update setting (for toggle)
+        function updateSetting(setting, value) {
+            const displayValue = value ? 'Arrows' : 'WASD';
+            document.getElementById('arrowKeysValue').textContent = displayValue;
+            
+            sendCommand(`set ${setting} ${value ? 'true' : 'false'}`);
+        }
+        
+        // Update slider gradient effect
+        function updateSliderGradient(settingId) {
+            const slider = document.getElementById(settingId.replace('_', ''));
+            if (!slider) return;
+            
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const value = parseFloat(slider.value);
+            const percentage = ((value - min) / (max - min)) * 100;
+            
+            slider.style.background = `linear-gradient(to right, #667eea ${percentage}%, #e0e0e0 ${percentage}%)`;
+        }
+        
+        // Load preset
+        async function loadPreset(presetName) {
+            sendCommand(`preset ${presetName}`);
+            addConsoleLog(`Loading ${presetName.toUpperCase()} preset...`);
+            
+            // Wait and reload settings
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await readAllSettings();
+        }
+        
+        // Save to EEPROM
+        function saveToEEPROM() {
+            sendCommand('save');
+            addConsoleLog('💾 Saving settings to EEPROM...');
+        }
+        
+        // Reset to factory defaults
+        async function resetToFactory() {
+            if (confirm('Reset all settings to factory defaults?')) {
+                sendCommand('reset');
+                addConsoleLog('🔄 Resetting to factory defaults...');
+                
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await readAllSettings();
+            }
+        }
+        
+        // Add line to console
+        function addConsoleLog(message) {
+            const consoleDiv = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.textContent = `> ${message}`;
+            consoleDiv.appendChild(line);
+            
+            // Auto-scroll to bottom
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            
+            // Keep only last 20 lines
+            while (consoleDiv.children.length > 20) {
+                consoleDiv.removeChild(consoleDiv.firstChild);
+            }
+        }
+        
+        // Initialize slider gradients
+        window.addEventListener('load', () => {
+            ['gearH', 'gearV', 'speedSense', 'decay', 'minHold', 'maxHold'].forEach(id => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                    const min = parseFloat(slider.min);
+                    const max = parseFloat(slider.max);
+                    const value = parseFloat(slider.value);
+                    const percentage = ((value - min) / (max - min)) * 100;
+                    slider.style.background = `linear-gradient(to right, #667eea ${percentage}%, #e0e0e0 ${percentage}%)`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -1,8 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <EEPROM.h>
+
 // =============================================================================
-// PIN CONFIGURATION
+// PIN CONFIGURATION (Hardware - Not Adjustable)
 // =============================================================================
 // Encoder pins
 const int HORIZONTAL_ENCODER_PIN_A = 1;
@@ -18,89 +20,159 @@ const int FIRE_BUTTON_2_PIN = 6;
 const int LED_PIN = 13;
 
 // =============================================================================
-// CONTROL MODE
+// EEPROM CONFIGURATION
 // =============================================================================
-// false = WASD keys, true = Arrow keys
-const bool USE_ARROW_KEYS = false;
+#define EEPROM_MAGIC_NUMBER 0xABCD1234  // Used to verify valid EEPROM data
+#define EEPROM_START_ADDRESS 0          // Start address in EEPROM
+#define CONFIG_VERSION 1                // Increment when struct changes
 
 // =============================================================================
-// REALISTIC TANK GEARING SYSTEM
+// RUNTIME ADJUSTABLE SETTINGS
 // =============================================================================
-// Gear reduction ratios (higher = more encoder turns needed, more realistic)
-// Real tanks: turret might be 20-30:1, cannon 15-20:1
-const float HORIZONTAL_GEAR_RATIO = 15.0f;  // Turret rotation: ~15 encoder clicks per key action
-const float VERTICAL_GEAR_RATIO = 12.0f;    // Cannon elevation: ~12 encoder clicks per key action
+// These values can be adjusted via Web UI or serial commands
+struct Settings {
+    uint32_t magicNumber;              // Verify valid EEPROM data
+    uint8_t version;                   // Config version
+    
+    // Key Bindings (USB HID Key Codes)
+    uint16_t keyHorizontalLeft;        // Left/CCW turret rotation key
+    uint16_t keyHorizontalRight;       // Right/CW turret rotation key
+    uint16_t keyVerticalUp;            // Up/elevation key
+    uint16_t keyVerticalDown;          // Down/depression key
+    uint16_t keyFire1;                 // Fire button 1 key
+    uint16_t keyFire2;                 // Fire button 2 key
+    
+    // Gear Ratios (5.0 to 30.0)
+    float horizontalGearRatio;         // Turret rotation gear reduction
+    float verticalGearRatio;           // Cannon elevation gear reduction
+    
+    // Speed Sensitivity (1.0 to 10.0)
+    float speedSensitivity;            // How much speed affects hold time
+    
+    // Key Hold Timing (10 to 500 ms)
+    unsigned long minKeyHoldMs;        // Minimum tap for slow movements
+    unsigned long maxKeyHoldMs;        // Maximum hold for fast cranking
+    
+    // Momentum & Inertia (0.0 to 1.0)
+    float speedDecay;                  // Speed decay when encoder stops
+    
+    // Release Timing (10 to 1000 ms)
+    unsigned long minTailHoldMs;       // Minimum hold after stopping
+    unsigned long maxTailHoldMs;       // Maximum tail hold
+    unsigned long hardIdleReleaseMs;   // Always release if idle this long
+    
+    // Fire Button Debounce (10 to 200 ms)
+    unsigned long fireDebounceMs;      // Debounce time for fire buttons
+    
+    // Debug Settings
+    unsigned long statusPrintIntervalMs; // Status print interval
+};
+
+// Factory default settings (WASD + Space)
+const Settings FACTORY_DEFAULTS = {
+    .magicNumber = EEPROM_MAGIC_NUMBER,
+    .version = CONFIG_VERSION,
+    .keyHorizontalLeft = 'a',           // A key
+    .keyHorizontalRight = 'd',          // D key
+    .keyVerticalUp = 'w',               // W key
+    .keyVerticalDown = 's',             // S key
+    .keyFire1 = ' ',                    // Space key
+    .keyFire2 = ' ',                    // Space key (both buttons = same key)
+    .horizontalGearRatio = 15.0f,       // Balanced
+    .verticalGearRatio = 12.0f,         // Balanced
+    .speedSensitivity = 3.0f,           // Moderate sensitivity
+    .minKeyHoldMs = 30,                 // Quick taps
+    .maxKeyHoldMs = 200,                // Reasonable max
+    .speedDecay = 0.85f,                // Realistic inertia
+    .minTailHoldMs = 50,                // Smooth releases
+    .maxTailHoldMs = 250,               // Natural feel
+    .hardIdleReleaseMs = 400,           // Safety timeout
+    .fireDebounceMs = 50,               // Standard debounce
+    .statusPrintIntervalMs = 3000       // 3 second intervals
+};
+
+// Preset configurations
+const Settings PRESET_ARCADE = {
+    .magicNumber = EEPROM_MAGIC_NUMBER,
+    .version = CONFIG_VERSION,
+    .keyHorizontalLeft = 'a',
+    .keyHorizontalRight = 'd',
+    .keyVerticalUp = 'w',
+    .keyVerticalDown = 's',
+    .keyFire1 = ' ',
+    .keyFire2 = ' ',
+    .horizontalGearRatio = 5.0f,        // Fast, responsive
+    .verticalGearRatio = 5.0f,          // Fast, responsive
+    .speedSensitivity = 2.0f,           // Less speed influence
+    .minKeyHoldMs = 20,
+    .maxKeyHoldMs = 150,
+    .speedDecay = 0.70f,                // Quick stop
+    .minTailHoldMs = 30,
+    .maxTailHoldMs = 150,
+    .hardIdleReleaseMs = 300,
+    .fireDebounceMs = 50,
+    .statusPrintIntervalMs = 3000
+};
+
+const Settings PRESET_SIMULATION = {
+    .magicNumber = EEPROM_MAGIC_NUMBER,
+    .version = CONFIG_VERSION,
+    .keyHorizontalLeft = 'a',
+    .keyHorizontalRight = 'd',
+    .keyVerticalUp = 'w',
+    .keyVerticalDown = 's',
+    .keyFire1 = ' ',
+    .keyFire2 = ' ',
+    .horizontalGearRatio = 25.0f,       // Slow, realistic
+    .verticalGearRatio = 20.0f,         // Slow, realistic
+    .speedSensitivity = 4.0f,           // More speed influence
+    .minKeyHoldMs = 40,
+    .maxKeyHoldMs = 250,
+    .speedDecay = 0.92f,                // High inertia
+    .minTailHoldMs = 80,
+    .maxTailHoldMs = 350,
+    .hardIdleReleaseMs = 500,
+    .fireDebounceMs = 50,
+    .statusPrintIntervalMs = 3000
+};
+
+const Settings PRESET_SNIPER = {
+    .magicNumber = EEPROM_MAGIC_NUMBER,
+    .version = CONFIG_VERSION,
+    .keyHorizontalLeft = 'a',
+    .keyHorizontalRight = 'd',
+    .keyVerticalUp = 'w',
+    .keyVerticalDown = 's',
+    .keyFire1 = ' ',
+    .keyFire2 = ' ',
+    .horizontalGearRatio = 30.0f,       // Ultra precise
+    .verticalGearRatio = 25.0f,         // Ultra precise
+    .speedSensitivity = 5.0f,           // High sensitivity
+    .minKeyHoldMs = 20,                 // Very short taps
+    .maxKeyHoldMs = 180,
+    .speedDecay = 0.80f,                // Quick damping
+    .minTailHoldMs = 40,
+    .maxTailHoldMs = 200,
+    .hardIdleReleaseMs = 350,
+    .fireDebounceMs = 50,
+    .statusPrintIntervalMs = 3000
+};
+
+// Global runtime settings (loaded from EEPROM or defaults)
+extern Settings currentSettings;
 
 // =============================================================================
-// SPEED SENSITIVITY
+// SERIAL CONFIGURATION
 // =============================================================================
-// Key hold duration based on turning speed
-const unsigned long MIN_KEY_HOLD_MS = 30;   // Minimum tap for slow, precise movements
-const unsigned long MAX_KEY_HOLD_MS = 200;  // Maximum hold for fast cranking
-const float SPEED_SENSITIVITY = 3.0f;       // Multiplier: how much speed affects hold time (higher = more sensitive)
-
-// =============================================================================
-// MOMENTUM & INERTIA
-// =============================================================================
-// Speed decay when encoder stops (0.0-1.0, lower = faster decay)
-const float SPEED_DECAY = 0.85f;  // 0.85 = realistic inertia, 0.5 = quick stop, 0.95 = lots of momentum
-
-// =============================================================================
-// RELEASE TIMING
-// =============================================================================
-// How long to wait before releasing keys when idle
-const unsigned long MIN_TAIL_HOLD_MS = 50;   // Minimum hold after stopping
-const unsigned long MAX_TAIL_HOLD_MS = 250;  // Maximum tail hold
-const unsigned long HARD_IDLE_RELEASE_MS = 400; // Always release if idle this long (safety)
-
-// =============================================================================
-// FIRE BUTTONS
-// =============================================================================
-// Debounce time to prevent false triggers from mechanical bounce
-const unsigned long FIRE_DEBOUNCE_MS = 50;  // 50ms is good for most buttons
-
-// =============================================================================
-// SERIAL DEBUG
-// =============================================================================
-// Baud rate for serial communication
 const unsigned long SERIAL_BAUD_RATE = 115200;
 
-// Status print interval (milliseconds)
-const unsigned long STATUS_PRINT_INTERVAL_MS = 3000;  // Print status every 3 seconds
-
 // =============================================================================
-// TUNING PRESETS
+// EEPROM FUNCTIONS
 // =============================================================================
-// Uncomment ONE of these to quickly switch between profiles
-
-// --- ARCADE MODE (fast, responsive) ---
-// #define PRESET_ARCADE
-#ifdef PRESET_ARCADE
-    #undef HORIZONTAL_GEAR_RATIO
-    #undef VERTICAL_GEAR_RATIO
-    #define HORIZONTAL_GEAR_RATIO 5.0f
-    #define VERTICAL_GEAR_RATIO 5.0f
-#endif
-
-// --- SIMULATION MODE (realistic, slow) ---
-// #define PRESET_SIMULATION
-#ifdef PRESET_SIMULATION
-    #undef HORIZONTAL_GEAR_RATIO
-    #undef VERTICAL_GEAR_RATIO
-    #define HORIZONTAL_GEAR_RATIO 25.0f
-    #define VERTICAL_GEAR_RATIO 20.0f
-#endif
-
-// --- SNIPER MODE (ultra-precise) ---
-// #define PRESET_SNIPER
-#ifdef PRESET_SNIPER
-    #undef HORIZONTAL_GEAR_RATIO
-    #undef VERTICAL_GEAR_RATIO
-    #undef MIN_KEY_HOLD_MS
-    #define HORIZONTAL_GEAR_RATIO 30.0f
-    #define VERTICAL_GEAR_RATIO 25.0f
-    #define MIN_KEY_HOLD_MS 20
-#endif
+void loadSettingsFromEEPROM();
+void saveSettingsToEEPROM();
+void resetToFactoryDefaults();
+void loadPreset(const Settings& preset);
 
 #endif // CONFIG_H
 
