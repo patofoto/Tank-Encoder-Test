@@ -23,8 +23,9 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Install PlatformIO Core
-        uses: platformio/action-install-platformio-core@v1
+      - name: Install PlatformIO
+        run: |
+          pip install --upgrade platformio
       
       - name: Build firmware
         run: |
