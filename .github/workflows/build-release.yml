@@ -34,21 +34,20 @@ jobs:
       - name: Extract version from tag
         id: get_version
         run: |
-          if [ "$REF_TYPE" == "tag" ]; then
-            VERSION="$REF_NAME"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # Extract tag name (remove refs/tags/ prefix)
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            VERSION="$TAG_NAME"
             # Remove 'v' prefix if present
             VERSION=${VERSION#v}
             echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "tag=$REF_NAME" >> $GITHUB_OUTPUT
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
           else
             # For manual builds, use timestamp
             VERSION="dev-$(date +%Y%m%d-%H%M%S)"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "tag=$VERSION" >> $GITHUB_OUTPUT
           fi
-        env:
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
       
       - name: Prepare release assets
         run: |
@@ -76,7 +75,7 @@ jobs:
           EOF
       
       - name: Create Release
-        if: github.ref_type == 'tag'
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: release_assets/*
@@ -110,7 +109,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Upload build artifacts (manual builds)
-        if: github.ref_type != 'tag'
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v3
         with:
           name: firmware-build
