@@ -9,10 +9,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for tags
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -30,18 +34,21 @@ jobs:
       - name: Extract version from tag
         id: get_version
         run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            VERSION="${{ github.ref_name }}"
+          if [ "$REF_TYPE" == "tag" ]; then
+            VERSION="$REF_NAME"
             # Remove 'v' prefix if present
             VERSION=${VERSION#v}
             echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "tag=$REF_NAME" >> $GITHUB_OUTPUT
           else
             # For manual builds, use timestamp
             VERSION="dev-$(date +%Y%m%d-%H%M%S)"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "tag=$VERSION" >> $GITHUB_OUTPUT
           fi
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
       
       - name: Prepare release assets
         run: |
