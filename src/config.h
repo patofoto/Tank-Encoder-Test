@@ -20,6 +20,11 @@ const int FIRE_BUTTON_2_PIN = 6;
 const int LED_PIN = 13;
 
 // =============================================================================
+// FIRMWARE VERSION
+// =============================================================================
+#define FIRMWARE_VERSION "1.0.0"        // Firmware version (semantic versioning)
+
+// =============================================================================
 // EEPROM CONFIGURATION
 // =============================================================================
 #define EEPROM_MAGIC_NUMBER 0xABCD1234  // Used to verify valid EEPROM data

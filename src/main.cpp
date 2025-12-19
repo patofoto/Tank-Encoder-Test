@@ -557,6 +557,8 @@ void setup(){
 	Serial.println("\n╔════════════════════════════════════════╗");
 	Serial.println("║  Tank Encoder Controller (Teensy 4.1) ║");
 	Serial.println("╚════════════════════════════════════════╝");
+	Serial.print("Firmware Version: ");
+	Serial.println(FIRMWARE_VERSION);
 	Serial.println("✓ USB HID Keyboard Ready");
 	Serial.println("✓ LED Power Indicator: ON");
 	Serial.println("✓ Encoders Initialized");

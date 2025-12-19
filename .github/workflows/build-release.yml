@@ -1,0 +1,112 @@
+name: Build and Release Firmware
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v1.2.3, etc.
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install PlatformIO
+        run: |
+          pip install --upgrade platformio
+      
+      - name: Build firmware
+        run: |
+          pio run -e teensy41
+      
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            VERSION="${{ github.ref_name }}"
+            # Remove 'v' prefix if present
+            VERSION=${VERSION#v}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            # For manual builds, use timestamp
+            VERSION="dev-$(date +%Y%m%d-%H%M%S)"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Prepare release assets
+        run: |
+          mkdir -p release_assets
+          # Copy the built firmware
+          cp .pio/build/teensy41/firmware.hex release_assets/tank_encoder_firmware.hex
+          # Also copy with version in filename
+          cp .pio/build/teensy41/firmware.hex "release_assets/tank_encoder_v${{ steps.get_version.outputs.version }}.hex"
+          # Create a simple README for the release
+          cat > release_assets/README.md << EOF
+          # Tank Encoder Firmware Release
+          
+          **Version:** ${{ steps.get_version.outputs.version }}
+          **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          ## Installation
+          
+          1. Download the \`.hex\` file
+          2. Install [Teensy Loader Application](https://www.pjrc.com/teensy/loader.html)
+          3. Put your Teensy 4.1 into program mode (press the button)
+          4. Open Teensy Loader and load the \`.hex\` file
+          5. Click "Program" to flash the firmware
+          
+          See FIRMWARE_FLASHING_GUIDE.md for detailed instructions.
+          EOF
+      
+      - name: Create Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release_assets/*
+          name: Release ${{ steps.get_version.outputs.tag }}
+          body: |
+            ## Firmware Release ${{ steps.get_version.outputs.version }}
+            
+            **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            
+            ### Installation Instructions
+            
+            1. Download the \`tank_encoder_firmware.hex\` file
+            2. Install [Teensy Loader Application](https://www.pjrc.com/teensy/loader.html)
+            3. Connect your Teensy 4.1 via USB
+            4. Put the device into program mode (press the button on the board)
+            5. Open Teensy Loader and load the \`.hex\` file
+            6. Click "Program" to flash the firmware
+            
+            ### What's New
+            
+            See the commit history for changes in this release.
+            
+            ### Troubleshooting
+            
+            - If Teensy Loader doesn't detect your device, make sure you've pressed the button to enter program mode
+            - Ensure you have the latest Teensy Loader Application installed
+            - Check that your USB cable supports data transfer (not just charging)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload build artifacts (manual builds)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v3
+        with:
+          name: firmware-build
+          path: release_assets/*
+          retention-days: 7
+
