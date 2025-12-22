@@ -12,9 +12,9 @@ def copy_firmware(source, target, env):
     
     # Get firmware version from platformio.ini or default
     try:
-        firmware_version = env.GetProjectOption("firmware_version", "1.0.0")
+        firmware_version = env.GetProjectOption("firmware_version", "1.0.1")
     except:
-        firmware_version = "1.0.0"
+        firmware_version = "1.0.1"
     
     # Create releases directory if it doesn't exist
     releases_dir = os.path.join(env["PROJECT_DIR"], "firmware_releases")

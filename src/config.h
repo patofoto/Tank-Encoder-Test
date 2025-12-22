@@ -22,7 +22,7 @@ const int LED_PIN = 13;
 // =============================================================================
 // FIRMWARE VERSION
 // =============================================================================
-#define FIRMWARE_VERSION "1.0.0"        // Firmware version (semantic versioning)
+#define FIRMWARE_VERSION "1.0.1"        // Firmware version (semantic versioning)
 
 // =============================================================================
 // EEPROM CONFIGURATION
@@ -104,8 +104,8 @@ const Settings PRESET_ARCADE = {
     .keyHorizontalRight = 'd',
     .keyVerticalUp = 'w',
     .keyVerticalDown = 's',
-    .keyFire1 = ' ',
-    .keyFire2 = ' ',
+    .keyFire1 = 'f',
+    .keyFire2 = 'f',
     .horizontalGearRatio = 5.0f,        // Fast, responsive
     .verticalGearRatio = 5.0f,          // Fast, responsive
     .speedSensitivity = 2.0f,           // Less speed influence
