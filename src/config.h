@@ -22,7 +22,7 @@ const int LED_PIN = 13;
 // =============================================================================
 // FIRMWARE VERSION
 // =============================================================================
-#define FIRMWARE_VERSION "1.0.1"        // Firmware version (semantic versioning)
+#define FIRMWARE_VERSION "1.0.2"        // Firmware version (semantic versioning)
 
 // =============================================================================
 // EEPROM CONFIGURATION
